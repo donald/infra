@@ -1,0 +1,138 @@
+---
+# Source: openldap/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+    chart: openldap-1.2.3
+    release: openldap
+    heritage: Helm
+type: Opaque
+data:
+  LDAP_ADMIN_PASSWORD: "VHViUzcwN3BnUGxTd3JPVWtVRFlmU2h6Ym1GMlVPS3E="
+  LDAP_CONFIG_PASSWORD: "d3dEMGYzTGlJTWhPSUowUW83eUFFRkQwWE5IRktRNXI="
+---
+# Source: openldap/templates/configmap-env.yaml
+#
+# A ConfigMap spec for openldap slapd that map directly to env variables in the Pod.
+# List of environment variables supported is from the docker image:
+# https://github.com/osixia/docker-openldap#beginner-guide
+# Note that passwords are defined as secrets
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openldap-env
+  labels:
+    app: openldap
+    chart: openldap-1.2.3
+    release: openldap
+    heritage: Helm
+data:
+  LDAP_BACKEND: hdb
+  LDAP_DOMAIN: example.org
+  LDAP_ORGANISATION: Example Inc.
+  LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+  LDAP_TLS: "true"
+  LDAP_TLS_ENFORCE: "false"
+---
+# Source: openldap/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+    chart: openldap-1.2.3
+    release: openldap
+    heritage: Helm
+spec:
+  clusterIP: ""
+  ports:
+    - name: ldap-port
+      protocol: TCP
+      port: 389
+      targetPort: ldap-port
+    - name: ssl-ldap-port
+      protocol: TCP
+      port: 636
+      targetPort: ssl-ldap-port
+  selector:
+    app: openldap
+    release: openldap
+  type: ClusterIP
+---
+# Source: openldap/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  openldap
+  labels:
+    app: openldap
+    chart: openldap-1.2.3
+    release: openldap
+    heritage: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openldap
+      release: openldap
+  template:
+    metadata:
+      annotations:
+        checksum/configmap-env: 8c7685cb040be528a15c436ebbe00e4ffc67e62158499d86bc42ae09485f67db
+      labels:
+        app: openldap
+        release: openldap
+    spec:
+      containers:
+        - name: openldap
+          image: "osixia/openldap:1.2.4"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: ldap-port
+              containerPort: 389
+            - name: ssl-ldap-port
+              containerPort: 636
+          envFrom:
+            - configMapRef:
+                name: openldap-env
+            - secretRef:
+                name: openldap
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/ldap
+              subPath: data
+            - name: data
+              mountPath: /etc/ldap/slapd.d
+              subPath: config-data
+          env:
+          livenessProbe:
+            tcpSocket:
+              port: ldap-port
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 10
+          readinessProbe:
+            tcpSocket:
+              port: ldap-port
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 10
+          resources:
+            {}
+      volumes:
+        - name: certs
+          emptyDir:
+            medium: Memory
+        - name: data
+          emptyDir: {}
+---
+# Source: openldap/templates/configmap-customldif.yaml
+#
+# A ConfigMap spec for openldap slapd that map directly to files under
+# /container/service/slapd/assets/config/bootstrap/ldif/custom
+#
