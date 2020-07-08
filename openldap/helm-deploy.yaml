@@ -11,8 +11,8 @@ metadata:
     heritage: Helm
 type: Opaque
 data:
-  LDAP_ADMIN_PASSWORD: "VHViUzcwN3BnUGxTd3JPVWtVRFlmU2h6Ym1GMlVPS3E="
-  LDAP_CONFIG_PASSWORD: "d3dEMGYzTGlJTWhPSUowUW83eUFFRkQwWE5IRktRNXI="
+  LDAP_ADMIN_PASSWORD: "Z3FFYnVrSGVEYTRVcE02MFAyNGFOTHlQZ2dqamlkYjY="
+  LDAP_CONFIG_PASSWORD: "dWt4cDZ5Q2p6WkJiYlZuOUJFNGs1MjJmR0tkaXNra0w="
 ---
 # Source: openldap/templates/configmap-env.yaml
 #
@@ -32,11 +32,30 @@ metadata:
     heritage: Helm
 data:
   LDAP_BACKEND: hdb
-  LDAP_DOMAIN: example.org
-  LDAP_ORGANISATION: Example Inc.
+  LDAP_DOMAIN: kejialiu.net
+  LDAP_ORGANISATION: Kejia Liu
   LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
   LDAP_TLS: "true"
   LDAP_TLS_ENFORCE: "false"
+  LDAP_TLS_VERIFY_CLIENT: never
+---
+# Source: openldap/templates/pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+    chart: openldap-1.2.3
+    release: openldap
+    heritage: Helm
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "20Gi"
+  storageClassName: "openldap-sc"
 ---
 # Source: openldap/templates/service.yaml
 apiVersion: v1
@@ -83,11 +102,23 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/configmap-env: 8c7685cb040be528a15c436ebbe00e4ffc67e62158499d86bc42ae09485f67db
+        checksum/configmap-env: ac0b64f1c5d2872ae33918d89b4dd6487a9fd3a63c13ae5632463049ddb2577f
       labels:
         app: openldap
         release: openldap
     spec:
+      initContainers:
+      - name: openldap-init-tls
+        image: busybox
+        command: ['sh', '-c', 'cp /tls/* /certs']
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: tls
+            mountPath: /tls
+          - name: certs
+            mountPath: /certs
+        resources:
+          {}
       containers:
         - name: openldap
           image: "osixia/openldap:1.2.4"
@@ -109,7 +140,13 @@ spec:
             - name: data
               mountPath: /etc/ldap/slapd.d
               subPath: config-data
+            - name: certs
+              mountPath: /container/service/slapd/assets/certs
           env:
+            - name: LDAP_TLS_CRT_FILENAME
+              value: tls.crt
+            - name: LDAP_TLS_KEY_FILENAME
+              value: tls.key
           livenessProbe:
             tcpSocket:
               port: ldap-port
@@ -125,11 +162,15 @@ spec:
           resources:
             {}
       volumes:
+        - name: tls
+          secret:
+            secretName: ldap-kejialiu-net-certs
         - name: certs
           emptyDir:
             medium: Memory
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: openldap
 ---
 # Source: openldap/templates/configmap-customldif.yaml
 #

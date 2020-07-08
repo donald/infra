@@ -27,8 +27,8 @@ existingSecret: ""
 
 # settings for enabling TLS
 tls:
-  enabled: false
-  secret: ""  # The name of a kubernetes.io/tls type secret to use for TLS
+  enabled: true
+  secret: "ldap-kejialiu-net-certs"  # The name of a kubernetes.io/tls type secret to use for TLS
   CA:
     enabled: false
     secret: ""  # The name of a generic secret to use for custom CA certificate (ca.crt)
@@ -54,12 +54,13 @@ service:
 # Default configuration for openldap as environment variables. These get injected directly in the container.
 # Use the env variables from https://github.com/osixia/docker-openldap#beginner-guide
 env:
-  LDAP_ORGANISATION: "Example Inc."
-  LDAP_DOMAIN: "example.org"
+  LDAP_ORGANISATION: "Kejia Liu"
+  LDAP_DOMAIN: "kejialiu.net"
   LDAP_BACKEND: "hdb"
   LDAP_TLS: "true"
   LDAP_TLS_ENFORCE: "false"
   LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+  LDAP_TLS_VERIFY_CLIENT: "never"
 
 # Default Passwords to use, stored as a secret. If unset, passwords are auto-generated.
 # You can override these at install time with
@@ -74,7 +75,7 @@ env:
 
 ## Persist data to a persistent volume
 persistence:
-  enabled: false
+  enabled: true
   ## database data Persistent Volume Storage Class
   ## If defined, storageClassName: <storageClass>
   ## If set to "-", storageClassName: "", which disables dynamic provisioning
@@ -82,9 +83,9 @@ persistence:
   ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
   ##   GKE, AWS & OpenStack)
   ##
-  # storageClass: "-"
+  storageClass: "openldap-sc"
   accessMode: ReadWriteOnce
-  size: 8Gi
+  size: 20Gi
   # existingClaim: ""
 
 resources: {}
